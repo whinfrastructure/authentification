@@ -1,2 +1,4 @@
-// Middleware module - HTTP middleware
-// Will be implemented in subsequent tasks
+pub mod auth;
+
+// Re-exports for convenience
+pub use auth::*;
