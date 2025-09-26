@@ -1,0 +1,197 @@
+# Rust Authentication Microservice - Product Requirements Document
+
+## Overview  
+Développer un microservice d'authentification performant en Rust pour servir d'API backend à des applications Next.js et Electron. Le produit résout le problème de gestion centralisée de l'authentification avec une architecture légère, performante et facile à déployer. Cible les développeurs et équipes souhaitant une solution d'auth moderne sans la complexité des services externes, offrant une base solide extensible selon les besoins futurs.
+
+## Core Features  
+
+### 1. Authentification Essentielle
+- **Inscription/Connexion** : Registration avec email/password, login sécurisé avec rate limiting
+- **Importance** : Foundation de toute application nécessitant des comptes utilisateurs
+- **Fonctionnement** : Validation email, hachage Argon2, JWT avec refresh tokens, sessions par appareil
+
+### 2. Gestion des Sessions Avancée
+- **Multi-Device Sessions** : Gestion des sessions par appareil avec tokens refresh longue durée
+- **Importance** : Permet une expérience utilisateur fluide sur plusieurs appareils
+- **Fonctionnement** : Device fingerprinting, refresh tokens persistants 7 jours, révocation granulaire
+
+### 3. Vérification Email & Reset Password
+- **Email Workflow** : Codes de vérification temporaires pour email et reset password
+- **Importance** : Sécurité et récupération de compte essentielles
+- **Fonctionnement** : Gmail SMTP, codes à 6 chiffres expirables, templates email simples
+
+### 4. Security & Rate Limiting  
+- **Protection Anti-Spam** : Rate limiting intelligent par endpoint avec Redis + SQLite fallback
+- **Importance** : Prévient les attaques brute force et spam
+- **Fonctionnement** : Limites configurables par action, blocage temporaire, audit trail
+
+## User Experience  
+
+### User Personas
+- **Développeur Frontend** : Intégration simple via API REST, tokens JWT standard
+- **Utilisateur Final** : Flow d'inscription fluide, gestion de sessions transparente
+- **DevOps/SysAdmin** : Déploiement simple, monitoring basique, maintenance minimale
+
+### Key User Flows
+1. **Registration Flow** : Email → Password → Code vérification → Compte actif
+2. **Login Flow** : Email/Password → Access token (15min) + Refresh token (7j)
+3. **Password Recovery** : Email → Code reset → Nouveau password → Re-login
+4. **Multi-Device** : Login sur nouvel appareil → Session séparée → Gestion centralisée
+
+### UI/UX Considerations
+- **API-First** : Endpoints RESTful cohérents pour intégration frontend
+- **Error Handling** : Messages d'erreur clairs et codes HTTP appropriés  
+- **Performance** : Réponses < 1ms, throughput 50k+ req/s
+- **Security UX** : Feedback transparent sur rate limits, sessions actives visibles
+
+## Technical Architecture  
+
+### System Components
+```
+┌─────────────────┐    ┌─────────────┐    ┌─────────────┐
+│   Next.js/      │────│   Rust API  │────│   SQLite    │
+│   Electron      │    │   (Axum)    │    │  Database   │
+└─────────────────┘    └─────────────┘    └─────────────┘
+                              │
+                       ┌─────────────┐
+                       │    Redis    │
+                       │  (Sessions) │
+                       └─────────────┘
+                              │
+                       ┌─────────────┐
+                       │ Gmail SMTP  │
+                       │   (Email)   │
+                       └─────────────┘
+```
+
+### Data Models
+**Core Tables** : users, device_sessions, verification_codes, account_activity, rate_limits
+**SQLite Schema** : Auto-generated UUIDs, optimized indexes, trigger-based timestamps
+**Redis Cache** : Session tokens, rate limiting counters, email codes temporaires
+
+### APIs and Integrations
+- **RESTful API** : 12 endpoints couvrant auth, user profile, session management
+- **JWT Standards** : Access tokens (15min) + Refresh tokens (7j) avec révocation
+- **Gmail SMTP** : Service lettre pour emails transactionnels fiables
+- **Redis Integration** : Cache haute performance avec fallback SQLite
+
+### Infrastructure Requirements
+- **Runtime** : Tokio async runtime, single binary deployment
+- **Dependencies** : SQLite file, Redis instance, Gmail SMTP credentials
+- **Resources** : < 50MB RAM, < 1ms latency, 50k+ req/s capacity
+- **Deployment** : Docker container, docker-compose pour dev, simple binary pour prod
+
+## Development Roadmap  
+
+### Phase 1 - MVP Foundation (2-3 semaines)
+**Scope** : Core authentication fonctionnel avec sécurité de base
+- Setup projet Rust avec Axum + configuration SQLite/Redis
+- Modèles de données (users, sessions, verification_codes)  
+- Endpoints critiques : register, login, logout, refresh
+- Service JWT avec access/refresh tokens
+- Middleware d'authentification basique
+- Service email SMTP pour vérification
+- Tests unitaires des services core
+- Configuration environnement et secrets
+
+**Deliverable** : API fonctionnelle permettant register/login avec email verification
+
+### Phase 2 - Complete Auth Features (1-2 semaines)
+**Scope** : Features complètes d'authentification et gestion utilisateur
+- Workflow complet de vérification email avec codes temporaires
+- Reset password avec codes par email
+- Gestion avancée des sessions multi-appareils  
+- Rate limiting intelligent avec Redis + SQLite fallback
+- Endpoints gestion profil utilisateur (get/update profile)
+- Gestion des sessions actives (list/delete sessions)
+- Audit trail pour activité compte
+- Tests d'intégration complets
+
+**Deliverable** : Service d'auth production-ready avec toutes les features utilisateur
+
+### Phase 3 - Production Readiness (1 semaine)
+**Scope** : Déploiement, monitoring et documentation pour production
+- Containerization Docker + docker-compose
+- Configuration production avec variables d'environnement
+- Logging structuré avec tracing pour monitoring
+- Health checks et endpoints de métriques
+- Documentation API complète (OpenAPI/Swagger)
+- Load testing et benchmarks performance
+- Guide de déploiement et opérations
+- Backup/restore procedures pour SQLite
+
+**Deliverable** : Microservice prêt pour déploiement production avec documentation complète
+
+## Logical Dependency Chain
+
+### Foundation First (Phase 1 - Semaine 1)
+1. **Project Setup** : Cargo.toml, structure modules, configuration
+2. **Database Layer** : SQLite schema, sqlx connection pool, migrations
+3. **Core Models** : User, Session, VerificationCode structs avec validations
+4. **Basic Server** : Axum setup, routes de base, middleware logging
+
+### Authentication Core (Phase 1 - Semaine 2-3)  
+5. **Password Service** : Argon2 hashing, validation strength
+6. **JWT Service** : Token generation/validation, refresh logic
+7. **Auth Handlers** : Register, login, logout endpoints
+8. **Email Service** : SMTP configuration, template system basique
+9. **Auth Middleware** : JWT validation, user context injection
+
+### User-Facing Features (Phase 2 - Semaine 4-5)
+10. **Email Verification** : Code generation, validation workflow
+11. **Password Recovery** : Forgot/reset password avec codes
+12. **Session Management** : Multi-device tracking, selective logout
+13. **User Profile** : CRUD operations profil utilisateur
+14. **Rate Limiting** : Redis-based avec SQLite fallback
+
+### Production Polish (Phase 3 - Semaine 6)  
+15. **Security Hardening** : Audit trail, security headers, validation
+16. **Monitoring & Logging** : Structured logs, health checks, metrics
+17. **Documentation** : API docs, deployment guide, operations manual
+18. **Testing & Performance** : Load testing, benchmarks, optimization
+
+## Risks and Mitigations  
+
+### Technical Challenges
+**Risk** : Performance SQLite sous haute charge
+**Mitigation** : Architecture read-heavy optimisée, indexes appropriés, considérer PostgreSQL si > 100k users
+
+**Risk** : Redis indisponibilité affectant sessions  
+**Mitigation** : Fallback SQLite pour rate limiting, graceful degradation, Redis clustering pour prod
+
+**Risk** : Gmail SMTP limits (500 emails/jour)
+**Mitigation** : Monitoring quotas, fallback SMTP providers (SendGrid/AWS SES), batching intelligent
+
+### MVP Scope Management
+**Risk** : Feature creep retardant le MVP
+**Mitigation** : Focus strict sur register/login/verify, features avancées en Phase 2, roadmap claire
+
+**Risk** : Sécurité insuffisante pour production
+**Mitigation** : Security-first approach, audit externe Phase 3, best practices crypto (Argon2, JWT)
+
+### Resource Constraints  
+**Risk** : Complexité déploiement multi-services
+**Mitigation** : Architecture simple SQLite + Redis, Docker compose pour dev, documentation déploiement
+
+**Risk** : Maintenance long-terme avec stack Rust
+**Mitigation** : Code bien documenté, tests complets, architecture simple, communauté Rust active
+
+## Appendix  
+
+### Research Findings
+- **Axum Performance** : Benchmarks montrent 50k+ req/s sur hardware standard
+- **SQLite Scaling** : Adapté jusqu'à 100k+ utilisateurs avec read-heavy workloads  
+- **Gmail SMTP** : Fiabilité excellente, 99.9% uptime, anti-spam intégré
+- **Rust Ecosystem** : Maturité croissante pour web services, tokio ecosystem stable
+
+### Technical Specifications
+- **Minimum Requirements** : 1 CPU core, 512MB RAM, 10GB storage
+- **Recommended** : 2 CPU cores, 2GB RAM, SSD storage pour SQLite
+- **Network** : HTTPS requis, CORS configuré pour frontends
+- **Security** : TLS 1.2+, JWT RS256/HS256, password policy configurable
+
+### Stack Justification
+- **SQLite** : Simplicité déploiement, performance excellente, ACID complet
+- **Axum** : Performance native Rust, ecosystem riche, type safety
+- **Redis** : Cache haute performance, primitives distribuées, fallback possible
+- **Gmail SMTP** : Gratuit, fiable, infrastructure Google, setup simple

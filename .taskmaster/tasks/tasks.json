@@ -1,0 +1,257 @@
+{
+  "master": {
+    "tasks": [
+      {
+        "id": 1,
+        "title": "Project Setup",
+        "description": "Initialize the Rust project with necessary dependencies and module structure for the authentication microservice.",
+        "details": "Create a new Cargo project named 'rust-auth-microservice'. Add dependencies in Cargo.toml: axum = { version = \"0.7\", features = [\"macros\"] }, tokio = { version = \"1\", features = [\"full\"] }, sqlx = { version = \"0.7\", features = [\"runtime-tokio-rustls\", \"sqlite\"] }, argon2 = \"0.5\", jsonwebtoken = \"9\", lettre = { version = \"0.10\", features = [\"tokio1\", \"smtp-transport\", \"gmail\"] }, redis = { version = \"0.25\", features = [\"tokio-comp\", \"connection-manager\"] }, serde = { version = \"1.0\", features = [\"derive\"] }, tracing = \"0.1\", tracing-subscriber = \"0.3\". Set up basic directory structure: src/ with main.rs, lib.rs, modules for models, services, handlers, config. Implement environment configuration using dotenv for secrets like DATABASE_URL, REDIS_URL, GMAIL_CREDENTIALS. Use clap for CLI args if needed. Ensure single binary deployment readiness with #[tokio::main].",
+        "testStrategy": "Run cargo check and cargo build to verify compilation. Test configuration loading with unit tests for env vars parsing. Ensure no panics on startup with mock env vars.",
+        "priority": "high",
+        "dependencies": [],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 2,
+        "title": "Database Layer Implementation",
+        "description": "Set up SQLite database connection, schema, and migrations for core tables.",
+        "details": "Use sqlx for async SQLite interactions. Define schema for tables: users (id: UUID PRIMARY KEY, email: TEXT UNIQUE NOT NULL, password_hash: TEXT NOT NULL, email_verified: BOOLEAN DEFAULT FALSE, created_at: TIMESTAMP DEFAULT CURRENT_TIMESTAMP), device_sessions (id: UUID PK, user_id: UUID FK, device_fingerprint: TEXT, refresh_token: TEXT, expires_at: TIMESTAMP, created_at: TIMESTAMP), verification_codes (id: UUID PK, user_id: UUID FK, code: TEXT, type: ENUM('email','reset'), expires_at: TIMESTAMP, used: BOOLEAN DEFAULT FALSE), account_activity (id: UUID PK, user_id: UUID FK, action: TEXT, ip: TEXT, timestamp: TIMESTAMP), rate_limits (endpoint: TEXT, ip: TEXT, attempts: INTEGER, expires_at: TIMESTAMP). Implement migrations using sqlx-cli. Set up connection pool with sqlx::SqlitePool::connect. Add indexes on email, user_id, expires_at for performance. Use triggers for auto timestamps. Fallback logic for Redis unavailability.",
+        "testStrategy": "Integration tests with sqlx::test::test_migrations to verify schema application. Unit tests for connection pool creation and query execution with in-memory SQLite. Assert table existence and sample inserts.",
+        "priority": "high",
+        "dependencies": [
+          1
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 3,
+        "title": "Core Data Models",
+        "description": "Define Rust structs for core entities with validations and serialization.",
+        "details": "Implement structs: #[derive(Serialize, Deserialize, sqlx::FromRow)] struct User { id: Uuid, email: String, password_hash: String, email_verified: bool, created_at: chrono::DateTime<Utc>, } Similarly for DeviceSession, VerificationCode, AccountActivity, RateLimit. Add validations using validator crate: email format, password strength (min 8 chars, etc.). Implement password hashing with Argon2id. Use uuid crate for IDs. Ensure serde for JSON API responses. Add methods like User::hash_password(&self, password: &str) -> Result<String>.",
+        "testStrategy": "Unit tests for struct deserialization/serialization with serde. Validation tests asserting invalid emails/passwords return errors. Hashing tests verifying Argon2 output and verification.",
+        "priority": "high",
+        "dependencies": [
+          2
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 4,
+        "title": "Basic Server Setup",
+        "description": "Configure Axum server with basic routes and logging middleware.",
+        "details": "In main.rs, set up Axum app with Router::new(). Add tracing middleware for structured logging. Define basic routes: GET /health, POST /register, POST /login, etc. Use tower::ServiceBuilder for middleware stack including CORS for Next.js/Electron origins. Configure server to bind on 0.0.0.0:3000 with tokio runtime. Implement graceful shutdown with signal handling. Add error handling middleware converting internal errors to HTTP responses.",
+        "testStrategy": "Run server and test /health endpoint with curl, assert 200 OK. Integration test with reqwest to hit routes and verify middleware logs. Load test with wrk for initial throughput.",
+        "priority": "high",
+        "dependencies": [
+          1,
+          3
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 5,
+        "title": "Password Service",
+        "description": "Implement secure password hashing and validation service.",
+        "details": "Create services/password.rs module. Use argon2::Argon2::new(argon2::Algorithm::Argon2id, argon2::Version::V0x13, argon2::Variant::Resistant). Implement hash_password(password: &str) -> Result<String> with salt from os_rng. Implement verify_password(hash: &str, password: &str) -> bool. Add password policy: min length 8, require uppercase, lowercase, digit, special. Use regex for validation. Integrate with User model.",
+        "testStrategy": "Unit tests for hashing: hash same password twice, verify with verify_password. Test invalid passwords against policy. Benchmark hashing time < 100ms.",
+        "priority": "medium",
+        "dependencies": [
+          3
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 6,
+        "title": "JWT Service",
+        "description": "Develop JWT token generation, validation, and refresh logic.",
+        "details": "Use jsonwebtoken crate. Define claims: struct Claims { sub: Uuid, exp: usize, iat: usize, device_id: Option<Uuid>, } Keys: HS256 with secret from env, or RS256 for prod. Implement generate_access_token(user_id: Uuid, device_id: Option<Uuid>) -> Result<String> expiring in 15min. generate_refresh_token(user_id: Uuid, device_id: Uuid) -> Result<String> expiring in 7 days. validate_token(token: &str) -> Result<Claims>. Refresh logic: validate refresh, issue new access and refresh if not revoked. Store refresh in DB/Redis with revocation list.",
+        "testStrategy": "Unit tests for token generation and validation with known secrets. Test expiration by setting short exp and asserting invalid after time. Integration with mock DB for refresh flow.",
+        "priority": "medium",
+        "dependencies": [
+          3
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 7,
+        "title": "Auth Handlers",
+        "description": "Implement core authentication endpoints: register, login, logout.",
+        "details": "In handlers/auth.rs: POST /register: parse JSON {email, password}, validate, hash password, insert User, generate verification code, send email. Return 201 with message. POST /login: find user by email, verify password, generate access/refresh tokens, insert DeviceSession with fingerprint (from header), return tokens. POST /logout: invalidate refresh token by marking in DB, blacklist access if needed. Use axum::extract::Json for input, State for services. Add rate limiting middleware.",
+        "testStrategy": "Integration tests with reqwest: simulate register, assert user in DB, email sent. Login with valid/invalid creds, assert tokens and sessions. Logout and verify token invalidation.",
+        "priority": "medium",
+        "dependencies": [
+          4,
+          5,
+          6
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 8,
+        "title": "Email Service",
+        "description": "Set up SMTP email service for verification and reset codes.",
+        "details": "Use lettre crate with Gmail SMTP. Config: from env SMTP_USER, SMTP_PASS. Implement send_verification_email(to: &str, code: &str) using simple HTML template: \"Your code is {code}, expires in 10min.\". send_reset_email similar. Generate 6-digit code with rand crate, store in verification_codes with expires_at = now + 10min. Async send with tokio. Handle errors gracefully, fallback logging.",
+        "testStrategy": "Unit tests for template rendering. Integration tests with mock SMTP server (e.g., lettre::transport::smtp::SmtpTransport with dummy). Assert code stored in DB and email content.",
+        "priority": "medium",
+        "dependencies": [
+          2
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 9,
+        "title": "Auth Middleware",
+        "description": "Create middleware for JWT authentication and user context injection.",
+        "details": "Implement axum middleware: async fn auth_middleware(state: State<AppState>, req: Request) -> Result<Request>. Extract Authorization: Bearer token, validate with JWT service, extract user_id, attach to extensions as UserContext {id: Uuid, device_id: Option<Uuid>}. Protect routes like /profile with this middleware. Handle 401 Unauthorized on failure. Add device fingerprint check from headers.",
+        "testStrategy": "Integration tests: hit protected route without token -> 401, with valid token -> 200 with user context. Test invalid/expired tokens. Mock JWT service for isolation.",
+        "priority": "medium",
+        "dependencies": [
+          4,
+          6
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 10,
+        "title": "Email Verification Workflow",
+        "description": "Implement email verification and password reset flows.",
+        "details": "POST /verify-email: {user_id, code}, find verification_code, check not used/expired, update user.email_verified = true, mark code used, return 200. POST /forgot-password: {email}, find user, generate/send reset code. POST /reset-password: {code, new_password}, validate code, hash new pass, update user. Integrate with handlers, use rate limiting. Expire codes after 10min.",
+        "testStrategy": "End-to-end tests: register -> send code -> verify -> assert email_verified. Forgot -> reset -> login with new pass. Test expired/invalid codes -> 400.",
+        "priority": "medium",
+        "dependencies": [
+          7,
+          8
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 11,
+        "title": "Session Management",
+        "description": "Add multi-device session tracking and management endpoints.",
+        "details": "POST /sessions/refresh: use refresh token, validate, issue new tokens, update expires_at. GET /sessions: list active sessions for user (protected), return device info, last active. DELETE /sessions/{id}: revoke specific session. Device fingerprint: hash of user-agent + ip. Store in device_sessions, cleanup expired on query. Redis for fast session lookup, fallback SQLite.",
+        "testStrategy": "Integration tests: login on two 'devices' (mock fingerprints), list sessions, refresh one, revoke other -> assert token invalid. Test cleanup of expired sessions.",
+        "priority": "medium",
+        "dependencies": [
+          6,
+          9
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 12,
+        "title": "Rate Limiting Implementation",
+        "description": "Set up intelligent rate limiting with Redis and SQLite fallback.",
+        "details": "Use redis crate for counters: key = \"rate:{endpoint}:{ip}\", incr, expire 1h. Limits: register/login 5/min, others 100/h. On exceed, 429 Too Many Requests. Fallback to SQLite rate_limits table if Redis down. Middleware: async fn rate_limit(req: &Request) -> Result. Configurable via env. Audit attempts in account_activity.",
+        "testStrategy": "Unit tests for Redis incr/expire. Integration: hit endpoint X times, assert 429 on exceed. Simulate Redis down, fallback to SQLite works. Load test with multiple IPs.",
+        "priority": "medium",
+        "dependencies": [
+          2,
+          4
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 13,
+        "title": "User Profile Management",
+        "description": "Implement CRUD endpoints for user profile.",
+        "details": "GET /profile (protected): return user info sans password. PATCH /profile: update email (if verified), other fields if added. Validate changes, re-verify if email change. Use auth middleware for user_id.",
+        "testStrategy": "Integration tests: after login, GET profile -> assert data. PATCH invalid email -> error, valid -> updated in DB.",
+        "priority": "low",
+        "dependencies": [
+          9
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 14,
+        "title": "Security Hardening and Audit Trail",
+        "description": "Add audit logging, security headers, and additional validations.",
+        "details": "Log all auth actions to account_activity: insert on register/login/etc with ip from headers. Add middleware for security headers: X-Content-Type-Options: nosniff, Strict-Transport-Security, etc. Input sanitization with validator. Revocation list for JWT blacklisting in Redis. Configurable password policy.",
+        "testStrategy": "Integration tests: perform actions, query DB for audit entries. Test headers in responses with curl. Simulate attack vectors like SQL inj (but use prepared stmts).",
+        "priority": "medium",
+        "dependencies": [
+          7,
+          12
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 15,
+        "title": "Monitoring, Logging, and Health Checks",
+        "description": "Implement structured logging, health checks, and basic metrics.",
+        "details": "Use tracing for logs: info on requests, error on failures. Add GET /health: check DB/Redis connectivity, return status. Metrics with prometheus if needed, but basic JSON. Configure log levels via env. Integrate with docker logs.",
+        "testStrategy": "Run server, trigger errors, assert logs structured (JSON). Health check test: assert 200 when healthy, 503 if DB down (mock).",
+        "priority": "low",
+        "dependencies": [
+          4
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 16,
+        "title": "Docker Containerization and Deployment Config",
+        "description": "Create Docker setup for development and production deployment.",
+        "details": "Dockerfile: FROM rust:1.75, COPY ., cargo build --release, CMD [\"./target/release/rust-auth-microservice\"]. docker-compose.yml: services for app, redis, with volumes for SQLite. Env vars for prod: secrets in compose or k8s. Healthcheck in Dockerfile. Binary deployment guide: compile release, run with env.",
+        "testStrategy": "Build docker image, run compose, test endpoints inside container. Assert app connects to redis/DB. Load test containerized version.",
+        "priority": "low",
+        "dependencies": [
+          1
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 17,
+        "title": "API Documentation and OpenAPI",
+        "description": "Generate comprehensive API documentation using OpenAPI/Swagger.",
+        "details": "Use utoipa crate for Axum to generate OpenAPI JSON. Add #[utoipa::path] to handlers. Serve /openapi.json and /docs with swagger-ui. Document all 12 endpoints: paths, params, responses, errors. Include auth schemes.",
+        "testStrategy": "Run server, GET /docs -> assert HTML, /openapi.json -> valid schema. Manual review for completeness.",
+        "priority": "low",
+        "dependencies": [
+          7,
+          10,
+          11
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 18,
+        "title": "Testing, Performance Benchmarks, and Optimization",
+        "description": "Conduct comprehensive testing and performance optimization.",
+        "details": "Add integration tests with sqlx test db, mock email/redis. Unit tests for services >80% coverage. Load testing with wrk or artillery: target 50k req/s, <1ms latency. Optimize queries with explain, index if needed. Backup script for SQLite: periodic copy. Security audit: check for vulns.",
+        "testStrategy": "Run cargo test, assert pass. Load test report: throughput, latency percentiles. Benchmark endpoints pre/post opt.",
+        "priority": "low",
+        "dependencies": [
+          7,
+          10,
+          11,
+          12,
+          14
+        ],
+        "status": "pending",
+        "subtasks": []
+      }
+    ],
+    "metadata": {
+      "created": "2025-09-26T14:46:23.669Z",
+      "updated": "2025-09-26T14:46:23.669Z",
+      "description": "Tasks for master context"
+    }
+  }
+}
