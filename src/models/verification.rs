@@ -82,7 +82,7 @@ impl VerificationCode {
     pub fn is_expired(&self) -> Result<bool> {
         let expires_at = chrono::NaiveDateTime::parse_from_str(&self.expires_at, "%Y-%m-%d %H:%M:%S")
             .map_err(|e| crate::errors::AppError::Internal(format!("Invalid datetime format: {}", e)))?;
-        let expires_at_utc = DateTime::from_naive_utc_and_offset(expires_at, Utc);
+        let expires_at_utc: DateTime<Utc> = DateTime::from_naive_utc_and_offset(expires_at, Utc);
         Ok(chrono::Utc::now() > expires_at_utc)
     }
 

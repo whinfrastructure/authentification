@@ -1,6 +1,6 @@
 use argon2::{Argon2, PasswordHash, PasswordHasher, PasswordVerifier};
 use argon2::password_hash::{SaltString, rand_core::OsRng};
-use chrono::Utc;
+// Removed unused import chrono::Utc
 use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
 use uuid::Uuid;
