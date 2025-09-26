@@ -1,8 +1,9 @@
-use authentification::{Config, AppError};
+use authentification::{Config, AppError, database::Database};
 use axum::{
+    extract::State,
     http::{
         header::{ACCEPT, AUTHORIZATION, CONTENT_TYPE},
-        HeaderValue, Method,
+        HeaderValue, Method, StatusCode,
     },
     response::Json,
     routing::get,
@@ -15,7 +16,7 @@ use tower_http::{
     cors::{Any, CorsLayer},
     trace::TraceLayer,
 };
-use tracing::{info, Level};
+use tracing::{info, Level, error};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 #[tokio::main]
@@ -37,8 +38,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     info!("Starting {} in {} mode", config.app_name, config.app_env);
 
+    // Initialize database connections
+    let database = Database::new(&config.database_url, &config.redis_url).await?;
+    info!("Database connections established");
+
     // Build our application with routes
-    let app = create_app(config.clone()).await?;
+    let app = create_app(config.clone(), database).await?;
 
     // Create socket address
     let addr = SocketAddr::from(([127, 0, 0, 1], config.server_port));
@@ -53,7 +58,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-async fn create_app(config: Config) -> Result<Router, AppError> {
+async fn create_app(config: Config, database: Database) -> Result<Router, AppError> {
     // Setup CORS
     let cors = CorsLayer::new()
         .allow_methods([Method::GET, Method::POST, Method::PATCH, Method::DELETE])
@@ -66,9 +71,10 @@ async fn create_app(config: Config) -> Result<Router, AppError> {
                 .collect::<Vec<_>>(),
         );
 
-    // Build the router
+    // Build the router with shared state
     let app = Router::new()
         .route("/health", get(health_check))
+        .with_state(AppState { config, database })
         .layer(
             ServiceBuilder::new()
                 .layer(TraceLayer::new_for_http())
@@ -78,12 +84,26 @@ async fn create_app(config: Config) -> Result<Router, AppError> {
     Ok(app)
 }
 
-async fn health_check() -> Json<serde_json::Value> {
-    Json(json!({
-        "status": "ok",
-        "message": "Auth microservice is running",
-        "timestamp": chrono::Utc::now().to_rfc3339()
-    }))
+#[derive(Clone)]
+pub struct AppState {
+    pub config: Config,
+    pub database: Database,
+}
+
+async fn health_check(State(state): State<AppState>) -> Result<Json<serde_json::Value>, StatusCode> {
+    match state.database.health_check().await {
+        Ok(()) => Ok(Json(json!({
+            "status": "ok",
+            "message": "Auth microservice is running",
+            "database": "connected",
+            "redis": if state.database.redis().is_some() { "connected" } else { "fallback" },
+            "timestamp": chrono::Utc::now().to_rfc3339()
+        }))),
+        Err(e) => {
+            error!("Health check failed: {}", e);
+            Err(StatusCode::SERVICE_UNAVAILABLE)
+        }
+    }
 }
 
 async fn shutdown_signal() {

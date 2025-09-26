@@ -9,4 +9,5 @@ pub mod errors;
 
 // Re-exports for convenience
 pub use config::*;
+pub use database::*;
 pub use errors::*;
