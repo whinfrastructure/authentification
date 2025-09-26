@@ -2,6 +2,7 @@ use chrono::{Duration, Utc};
 use jsonwebtoken::{decode, encode, Algorithm, DecodingKey, EncodingKey, Header, Validation};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
+use base64::prelude::*;
 use crate::errors::{AppError, Result};
 
 /// Claims for access tokens (short-lived, 15 minutes)
@@ -214,7 +215,7 @@ impl JwtService {
                     return Err(AppError::Authentication("Invalid token format".to_string()));
                 }
 
-                let payload = base64::decode_config(parts[1], base64::URL_SAFE_NO_PAD)
+                let payload = base64::prelude::BASE64_URL_SAFE_NO_PAD.decode(parts[1])
                     .map_err(|_| AppError::Authentication("Invalid token encoding".to_string()))?;
                 
                 let claims: serde_json::Value = serde_json::from_slice(&payload)

@@ -1,4 +1,4 @@
-use authentification::{Config, AppError, AppState, Database, handlers};
+use authentification::{Config, AppError, AppState, Database, JwtService, handlers};
 use axum::{
     extract::State,
     http::{
@@ -59,6 +59,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 async fn create_app(config: Config, database: Database) -> Result<Router, AppError> {
+    // Create JWT service
+    let jwt_service = JwtService::new(
+        &config.jwt_secret,
+        config.jwt_access_token_expires_in,
+        config.jwt_refresh_token_expires_in
+    )?;
     // Setup CORS
     let cors = CorsLayer::new()
         .allow_methods([Method::GET, Method::POST, Method::PATCH, Method::DELETE])
@@ -85,7 +91,7 @@ async fn create_app(config: Config, database: Database) -> Result<Router, AppErr
         .route("/api/auth/forgot-password", post(handlers::forgot_password_handler))
         .route("/api/auth/reset-password", post(handlers::reset_password_handler))
         
-        .with_state(AppState { config, database })
+        .with_state(AppState { config, database, jwt_service })
         .layer(
             ServiceBuilder::new()
                 .layer(TraceLayer::new_for_http())
