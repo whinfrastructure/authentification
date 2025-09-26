@@ -1,4 +1,4 @@
-use authentification::{Config, AppError, database::Database};
+use authentification::{Config, AppError, database::Database, handlers};
 use axum::{
     extract::State,
     http::{
@@ -6,7 +6,7 @@ use axum::{
         HeaderValue, Method, StatusCode,
     },
     response::Json,
-    routing::get,
+    routing::{get, post},
     Router,
 };
 use serde_json::json;
@@ -73,7 +73,18 @@ async fn create_app(config: Config, database: Database) -> Result<Router, AppErr
 
     // Build the router with shared state
     let app = Router::new()
+        // Health check
         .route("/health", get(health_check))
+        
+        // Authentication routes
+        .route("/api/auth/register", post(handlers::register_handler))
+        .route("/api/auth/login", post(handlers::login_handler))
+        .route("/api/auth/logout", post(handlers::logout_handler))
+        .route("/api/auth/refresh", post(handlers::refresh_handler))
+        .route("/api/auth/verify-email", post(handlers::verify_email_handler))
+        .route("/api/auth/forgot-password", post(handlers::forgot_password_handler))
+        .route("/api/auth/reset-password", post(handlers::reset_password_handler))
+        
         .with_state(AppState { config, database })
         .layer(
             ServiceBuilder::new()

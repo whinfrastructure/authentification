@@ -11,3 +11,10 @@ pub mod errors;
 pub use config::*;
 pub use database::*;
 pub use errors::*;
+
+// App state structure
+#[derive(Clone)]
+pub struct AppState {
+    pub config: Config,
+    pub database: Database,
+}

@@ -1,2 +1,5 @@
 // Handlers module - contains HTTP request handlers
-// Will be implemented in phase 2
+pub mod auth;
+
+// Re-exports
+pub use auth::*;
