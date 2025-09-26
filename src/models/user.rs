@@ -1,11 +1,10 @@
-use argon2::{Argon2, PasswordHash, PasswordHasher, PasswordVerifier};
-use argon2::password_hash::{SaltString, rand_core::OsRng};
+use crate::services::{PasswordService, PasswordPolicy};
 // Removed unused import chrono::Utc
 use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
 use uuid::Uuid;
 use validator::Validate;
-use crate::errors::{AppError, Result};
+use crate::errors::Result;
 
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow, Validate)]
 pub struct User {
@@ -48,7 +47,9 @@ pub struct UserResponse {
 impl User {
     pub fn new(email: String, password: &str) -> Result<Self> {
         let id = Uuid::new_v4().to_string();
-        let password_hash = Self::hash_password(password)?;
+        let password_service = PasswordService::new();
+        let policy = PasswordPolicy::default();
+        let password_hash = password_service.validate_and_hash(password, &policy)?;
         let now = chrono::Utc::now().format("%Y-%m-%d %H:%M:%S").to_string();
 
         Ok(Self {
@@ -64,21 +65,17 @@ impl User {
         })
     }
 
-    pub fn hash_password(password: &str) -> Result<String> {
-        let salt = SaltString::generate(&mut OsRng);
-        let argon2 = Argon2::default();
-        let password_hash = argon2
-            .hash_password(password.as_bytes(), &salt)
-            .map_err(|e| AppError::Internal(format!("Password hashing failed: {}", e)))?
-            .to_string();
-        Ok(password_hash)
+    pub fn verify_password(&self, password: &str) -> Result<bool> {
+        let password_service = PasswordService::new();
+        password_service.verify_password(password, &self.password_hash)
     }
 
-    pub fn verify_password(&self, password: &str) -> Result<bool> {
-        let parsed_hash = PasswordHash::new(&self.password_hash)
-            .map_err(|e| AppError::Internal(format!("Invalid password hash: {}", e)))?;
-        let argon2 = Argon2::default();
-        Ok(argon2.verify_password(password.as_bytes(), &parsed_hash).is_ok())
+    pub fn update_password(&mut self, new_password: &str) -> Result<()> {
+        let password_service = PasswordService::new();
+        let policy = PasswordPolicy::default();
+        self.password_hash = password_service.validate_and_hash(new_password, &policy)?;
+        self.updated_at = chrono::Utc::now().format("%Y-%m-%d %H:%M:%S").to_string();
+        Ok(())
     }
 
     pub fn to_response(&self) -> UserResponse {
@@ -120,4 +117,69 @@ fn validate_password_strength(password: &str) -> std::result::Result<(), validat
     }
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_user_creation_with_valid_password() {
+        let user = User::new("test@example.com".to_string(), "ValidPass123!");
+        assert!(user.is_ok());
+        
+        let user = user.unwrap();
+        assert_eq!(user.email, "test@example.com");
+        assert!(!user.email_verified);
+        assert!(!user.password_hash.is_empty());
+    }
+
+    #[test]
+    fn test_user_creation_with_invalid_password() {
+        // Password too short
+        let user = User::new("test@example.com".to_string(), "short");
+        assert!(user.is_err());
+        
+        // Password missing requirements
+        let user = User::new("test@example.com".to_string(), "nouppercase123!");
+        assert!(user.is_err());
+    }
+
+    #[test]
+    fn test_password_verification() {
+        let user = User::new("test@example.com".to_string(), "ValidPass123!").unwrap();
+        
+        // Correct password
+        assert!(user.verify_password("ValidPass123!").unwrap());
+        
+        // Wrong password
+        assert!(!user.verify_password("WrongPassword").unwrap());
+    }
+
+    #[test]
+    fn test_password_update() {
+        let mut user = User::new("test@example.com".to_string(), "ValidPass123!").unwrap();
+        let old_hash = user.password_hash.clone();
+        
+        // Update password
+        assert!(user.update_password("NewValidPass456!").is_ok());
+        assert_ne!(user.password_hash, old_hash);
+        
+        // Verify old password no longer works
+        assert!(!user.verify_password("ValidPass123!").unwrap());
+        
+        // Verify new password works
+        assert!(user.verify_password("NewValidPass456!").unwrap());
+    }
+
+    #[test]
+    fn test_user_to_response() {
+        let user = User::new("test@example.com".to_string(), "ValidPass123!").unwrap();
+        let response = user.to_response();
+        
+        assert_eq!(response.email, user.email);
+        assert_eq!(response.id, user.id);
+        assert_eq!(response.email_verified, user.email_verified);
+        // Password hash should not be in response
+    }
 }
