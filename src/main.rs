@@ -1,4 +1,4 @@
-use authentification::{Config, AppError, AppState, handlers};
+use authentification::{Config, AppError, AppState, Database, handlers};
 use axum::{
     extract::State,
     http::{
@@ -58,7 +58,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-async fn create_app(config: Config, database: authentification::database::Database) -> Result<Router, AppError> {
+async fn create_app(config: Config, database: Database) -> Result<Router, AppError> {
     // Setup CORS
     let cors = CorsLayer::new()
         .allow_methods([Method::GET, Method::POST, Method::PATCH, Method::DELETE])
