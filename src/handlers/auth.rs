@@ -10,7 +10,37 @@ use validator::Validate;
 use crate::{
     AppState,
     models::{User, DeviceSession, VerificationCode},
-    services::{jwt::TokenPair, email::EmailService},
+    services::{jwt::Tokpub async fn verify_email_handler(
+    State(state): State<AppState>,
+    Query(params): Query<VerifyEmailQuery>,
+) -> Result<Json<MessageResponse>, AppError> {
+    // Find verification code
+    let verification = VerificationCode::find_by_code(&state.database.pool, &params.code).await?;
+
+    // Check if verification code exists and is valid
+    if verification.expires_at <= chrono::Utc::now() {
+        return Err(AppError::Validation("Verification code expired".to_string()));
+    }
+
+    if verification.used_at.is_some() {
+        return Err(AppError::Validation("Verification code already used".to_string()));
+    }
+
+    // Mark user as verified
+    let mut user = User::find_by_id(&state.database.pool, &verification.user_id).await?;
+    user.email_verified = true;
+    user.email_verified_at = Some(chrono::Utc::now());
+    user.update(&state.database.pool).await?;
+
+    // Mark verification code as used
+    let mut updated_verification = verification;
+    updated_verification.used_at = Some(chrono::Utc::now());
+    updated_verification.update(&state.database.pool).await?;
+
+    Ok(Json(MessageResponse {
+        message: "Email verified successfully".to_string(),
+    }))
+}email::EmailService},
     errors::{AppError, Result},
 };
 
