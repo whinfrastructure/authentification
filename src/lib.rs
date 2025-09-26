@@ -12,6 +12,7 @@ pub use config::*;
 pub use database::*;
 pub use errors::*;
 pub use services::jwt::JwtService;
+pub use services::email::EmailService;
 
 // App state structure
 #[derive(Clone)]
@@ -19,4 +20,5 @@ pub struct AppState {
     pub config: Config,
     pub database: Database,
     pub jwt_service: JwtService,
+    pub email_service: EmailService,
 }

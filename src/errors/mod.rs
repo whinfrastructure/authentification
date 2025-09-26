@@ -35,6 +35,12 @@ pub enum AppError {
     #[error("Email error: {0}")]
     Email(#[from] lettre::error::Error),
     
+    #[error("SMTP error: {0}")]
+    Smtp(#[from] lettre::transport::smtp::Error),
+    
+    #[error("Address error: {0}")]
+    Address(#[from] lettre::address::AddressError),
+    
     #[error("Configuration error: {0}")]
     Config(String),
     
@@ -54,6 +60,8 @@ impl IntoResponse for AppError {
             AppError::NotFound(msg) => (StatusCode::NOT_FOUND, msg.as_str()),
             AppError::RateLimit => (StatusCode::TOO_MANY_REQUESTS, "Rate limit exceeded"),
             AppError::Email(_) => (StatusCode::INTERNAL_SERVER_ERROR, "Email service error"),
+            AppError::Smtp(_) => (StatusCode::INTERNAL_SERVER_ERROR, "SMTP service error"),
+            AppError::Address(_) => (StatusCode::BAD_REQUEST, "Invalid email address"),
             AppError::Config(msg) => (StatusCode::INTERNAL_SERVER_ERROR, msg.as_str()),
             AppError::Internal(msg) => (StatusCode::INTERNAL_SERVER_ERROR, msg.as_str()),
         };
