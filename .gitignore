@@ -6,9 +6,11 @@ yarn-debug.log*
 yarn-error.log*
 dev-debug.log
 
-/.taskmaster
-/.vscode
-/.target
+.taskmaster/
+.vscode/
+.target/
+
+auth.db
 
 # Dependency directories
 node_modules/

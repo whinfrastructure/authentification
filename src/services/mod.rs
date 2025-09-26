@@ -1,2 +1,5 @@
 // Services module - business logic services
-// Will be implemented in subsequent tasks
+pub mod password;
+
+// Re-exports
+pub use password::*;
