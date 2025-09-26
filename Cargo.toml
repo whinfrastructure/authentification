@@ -35,7 +35,7 @@ argon2 = "0.5"
 uuid = { version = "1.0", features = ["v4", "serde"] }
 
 # Email
-lettre = { version = "0.11", features = ["tokio1-rustls-tls", "smtp-transport"] }
+lettre = { version = "0.11", features = ["tokio1-native-tls", "smtp-transport"] }
 
 # Date/Time
 chrono = { version = "0.4", features = ["serde"] }

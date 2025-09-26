@@ -1,4 +1,4 @@
-use redis::{ConnectionManager, RedisError};
+use redis::aio::ConnectionManager;
 use sqlx::{migrate::MigrateDatabase, sqlite::SqlitePoolOptions, SqlitePool};
 use std::time::Duration;
 use tracing::{info, warn};
