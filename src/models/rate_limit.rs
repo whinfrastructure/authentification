@@ -46,7 +46,7 @@ impl RateLimit {
         if let Some(ref blocked_until_str) = self.blocked_until {
             let blocked_until = chrono::NaiveDateTime::parse_from_str(blocked_until_str, "%Y-%m-%d %H:%M:%S")
                 .map_err(|e| crate::errors::AppError::Internal(format!("Invalid datetime format: {}", e)))?;
-            let blocked_until_utc = DateTime::<Utc>::from_utc(blocked_until, Utc);
+            let blocked_until_utc = DateTime::from_naive_utc_and_offset(blocked_until, Utc);
             Ok(chrono::Utc::now() < blocked_until_utc)
         } else {
             Ok(false)
@@ -56,7 +56,7 @@ impl RateLimit {
     pub fn is_window_expired(&self, config: &RateLimitConfig) -> Result<bool> {
         let window_start = chrono::NaiveDateTime::parse_from_str(&self.window_start, "%Y-%m-%d %H:%M:%S")
             .map_err(|e| crate::errors::AppError::Internal(format!("Invalid datetime format: {}", e)))?;
-        let window_start_utc = DateTime::<Utc>::from_utc(window_start, Utc);
+        let window_start_utc = DateTime::from_naive_utc_and_offset(window_start, Utc);
         let window_end = window_start_utc + Duration::minutes(config.window_minutes as i64);
         Ok(chrono::Utc::now() > window_end)
     }

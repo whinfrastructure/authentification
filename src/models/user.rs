@@ -1,6 +1,6 @@
 use argon2::{Argon2, PasswordHash, PasswordHasher, PasswordVerifier};
 use argon2::password_hash::{SaltString, rand_core::OsRng};
-use chrono::{DateTime, Utc};
+use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
 use uuid::Uuid;
@@ -27,7 +27,7 @@ pub struct CreateUserRequest {
     #[validate(email(message = "Invalid email format"))]
     pub email: String,
     #[validate(length(min = 8, message = "Password must be at least 8 characters"))]
-    #[validate(custom = "validate_password_strength")]
+    #[validate(custom(function = "validate_password_strength"))]
     pub password: String,
     pub first_name: Option<String>,
     pub last_name: Option<String>,
