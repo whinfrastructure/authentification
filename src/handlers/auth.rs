@@ -354,19 +354,67 @@ pub async fn verify_email_handler(
 }
 
 pub async fn forgot_password_handler(
-    State(_state): State<AppState>,
-) -> Result<Json<serde_json::Value>, StatusCode> {
-    Ok(Json(json!({
-        "message": "Forgot password endpoint - to be implemented",
-        "status": "placeholder"
-    })))
+    State(state): State<AppState>,
+    ExtractJson(request): ExtractJson<ForgotPasswordRequest>,
+) -> Result<Json<MessageResponse>, AppError> {
+    // Validate input
+    request.validate()?;
+
+    // Find user by email (don't reveal if email exists for security)
+    if let Ok(user) = User::find_by_email(&state.database.pool, &request.email).await {
+        // Generate password reset code
+        let reset_code = VerificationCode::create_password_reset(
+            &state.database.pool,
+            &user.id,
+        ).await?;
+
+        // Send password reset email
+        state.email_service.send_password_reset_email(&user.email, &reset_code.code).await?;
+    }
+
+    // Always return success to prevent email enumeration
+    Ok(Json(MessageResponse {
+        message: "If the email exists, a password reset link has been sent".to_string(),
+    }))
 }
 
 pub async fn reset_password_handler(
-    State(_state): State<AppState>,
-) -> Result<Json<serde_json::Value>, StatusCode> {
-    Ok(Json(json!({
-        "message": "Reset password endpoint - to be implemented",
-        "status": "placeholder"
-    })))
+    State(state): State<AppState>,
+    ExtractJson(request): ExtractJson<ResetPasswordRequest>,
+) -> Result<Json<MessageResponse>, AppError> {
+    // Validate input
+    request.validate()?;
+
+    // Find verification code
+    let verification = VerificationCode::find_by_code(&state.database.pool, &request.code).await?;
+
+    // Verify it's a password reset code and still valid
+    if verification.code_type != "password_reset" {
+        return Err(AppError::Validation("Invalid reset code".to_string()));
+    }
+
+    if verification.expires_at <= chrono::Utc::now() {
+        return Err(AppError::Validation("Reset code expired".to_string()));
+    }
+
+    if verification.used_at.is_some() {
+        return Err(AppError::Validation("Reset code already used".to_string()));
+    }
+
+    // Update user password
+    let mut user = User::find_by_id(&state.database.pool, &verification.user_id).await?;
+    user.password_hash = state.password_service.hash_password(&request.new_password)?;
+    user.update(&state.database.pool).await?;
+
+    // Mark verification code as used
+    let mut updated_verification = verification;
+    updated_verification.used_at = Some(chrono::Utc::now());
+    updated_verification.update(&state.database.pool).await?;
+
+    // Invalidate all existing device sessions for this user for security
+    DeviceSession::invalidate_all_for_user(&state.database.pool, &user.id).await?;
+
+    Ok(Json(MessageResponse {
+        message: "Password reset successfully".to_string(),
+    }))
 }
