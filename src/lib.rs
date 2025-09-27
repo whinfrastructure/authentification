@@ -13,6 +13,7 @@ pub use database::*;
 pub use errors::*;
 pub use services::jwt::JwtService;
 pub use services::email::EmailService;
+pub use services::password::PasswordService;
 
 // App state structure
 #[derive(Clone)]
@@ -21,4 +22,5 @@ pub struct AppState {
     pub database: Database,
     pub jwt_service: JwtService,
     pub email_service: EmailService,
+    pub password_service: PasswordService,
 }

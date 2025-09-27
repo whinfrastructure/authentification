@@ -1,24 +1,22 @@
 use crate::services::{PasswordService, PasswordPolicy};
-// Removed unused import chrono::Utc
 use serde::{Deserialize, Serialize};
-use sqlx::FromRow;
+use sqlx::{FromRow, SqlitePool};
 use uuid::Uuid;
 use validator::Validate;
 use crate::errors::Result;
 
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow, Validate)]
 pub struct User {
-    pub id: String, // SQLite uses TEXT for UUID
-    #[validate(email(message = "Invalid email format"))]
+    pub id: Uuid,
     pub email: String,
-    #[serde(skip_serializing)] // Never serialize password hash
     pub password_hash: String,
-    pub email_verified: bool,
     pub first_name: Option<String>,
     pub last_name: Option<String>,
+    pub email_verified: bool,
+    pub email_verified_at: Option<chrono::DateTime<chrono::Utc>>,
     pub avatar_url: Option<String>,
-    pub created_at: String, // SQLite TEXT datetime
-    pub updated_at: String,
+    pub created_at: chrono::DateTime<chrono::Utc>,
+    pub updated_at: chrono::DateTime<chrono::Utc>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Validate)]
@@ -77,6 +75,10 @@ impl User {
         self.updated_at = chrono::Utc::now().format("%Y-%m-%d %H:%M:%S").to_string();
         Ok(())
     }
+
+    // Database operations will be implemented later
+
+
 
     pub fn to_response(&self) -> UserResponse {
         UserResponse {

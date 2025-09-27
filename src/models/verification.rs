@@ -1,6 +1,6 @@
 use chrono::{DateTime, Utc, Duration};
 use serde::{Deserialize, Serialize};
-use sqlx::FromRow;
+use sqlx::{FromRow, SqlitePool};
 use uuid::Uuid;
 use rand::Rng;
 use crate::errors::Result;
@@ -8,14 +8,14 @@ use crate::errors::Result;
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
 pub struct VerificationCode {
     pub id: String,
-    pub user_id: Option<String>, // Nullable for pre-registration verification
-    pub email: Option<String>,   // For codes sent before user creation
+    pub user_id: String, 
+    pub email: Option<String>,   
     pub code: String,
-    pub code_type: VerificationCodeType,
-    pub expires_at: String, // SQLite TEXT datetime
-    pub used: bool,
+    pub code_type: String, // Simplify to string for now
+    pub expires_at: chrono::DateTime<chrono::Utc>,
+    pub used_at: Option<chrono::DateTime<chrono::Utc>>,
     pub attempts: i32,
-    pub created_at: String,
+    pub created_at: chrono::DateTime<chrono::Utc>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, sqlx::Type)]
@@ -52,14 +52,13 @@ pub struct VerifyCodeRequest {
 impl VerificationCode {
     pub fn new(
         email: String,
-        code_type: VerificationCodeType,
-        user_id: Option<String>,
+        code_type: String,
+        user_id: String,
     ) -> Self {
         let id = Uuid::new_v4().to_string();
         let code = Self::generate_code();
         let now = chrono::Utc::now();
-        let expires_at = (now + Duration::minutes(15)).format("%Y-%m-%d %H:%M:%S").to_string();
-        let now_str = now.format("%Y-%m-%d %H:%M:%S").to_string();
+        let expires_at = now + Duration::minutes(15);
 
         Self {
             id,
@@ -68,9 +67,9 @@ impl VerificationCode {
             code,
             code_type,
             expires_at,
-            used: false,
+            used_at: None,
             attempts: 0,
-            created_at: now_str,
+            created_at: now,
         }
     }
 
@@ -80,14 +79,11 @@ impl VerificationCode {
     }
 
     pub fn is_expired(&self) -> Result<bool> {
-        let expires_at = chrono::NaiveDateTime::parse_from_str(&self.expires_at, "%Y-%m-%d %H:%M:%S")
-            .map_err(|e| crate::errors::AppError::Internal(format!("Invalid datetime format: {}", e)))?;
-        let expires_at_utc: DateTime<Utc> = DateTime::from_naive_utc_and_offset(expires_at, Utc);
-        Ok(chrono::Utc::now() > expires_at_utc)
+        Ok(chrono::Utc::now() > self.expires_at)
     }
 
     pub fn is_valid(&self) -> Result<bool> {
-        Ok(!self.used && !self.is_expired()? && self.attempts < 3)
+        Ok(self.used_at.is_none() && !self.is_expired()? && self.attempts < 3)
     }
 
     pub fn increment_attempts(&mut self) {
@@ -95,6 +91,8 @@ impl VerificationCode {
     }
 
     pub fn mark_as_used(&mut self) {
-        self.used = true;
+        self.used_at = Some(chrono::Utc::now());
     }
+
+    // Database operations will be implemented later
 }

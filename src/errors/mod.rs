@@ -5,6 +5,7 @@ use axum::{
 };
 use serde_json::json;
 use thiserror::Error;
+use validator::ValidationErrors;
 
 #[derive(Error, Debug)]
 pub enum AppError {
@@ -19,6 +20,12 @@ pub enum AppError {
     
     #[error("Validation error: {0}")]
     Validation(String),
+
+    #[error("Validation errors")]
+    ValidationErrors(#[from] ValidationErrors),
+
+    #[error("UUID parsing error: {0}")]
+    UuidError(#[from] uuid::Error),
     
     #[error("Authentication error: {0}")]
     Authentication(String),
@@ -64,6 +71,8 @@ impl IntoResponse for AppError {
             AppError::Address(_) => (StatusCode::BAD_REQUEST, "Invalid email address"),
             AppError::Config(msg) => (StatusCode::INTERNAL_SERVER_ERROR, msg.as_str()),
             AppError::Internal(msg) => (StatusCode::INTERNAL_SERVER_ERROR, msg.as_str()),
+            AppError::ValidationErrors(_) => (StatusCode::BAD_REQUEST, "Validation failed"),
+            AppError::UuidError(_) => (StatusCode::BAD_REQUEST, "Invalid UUID format"),
         };
 
         let body = Json(json!({

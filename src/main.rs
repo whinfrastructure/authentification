@@ -68,6 +68,10 @@ async fn create_app(config: Config, database: Database) -> Result<Router, AppErr
 
     // Create Email service
     let email_service = EmailService::new(&config)?;
+    
+    // Create Password service
+    let password_service = PasswordService::new();
+    
     // Setup CORS
     let cors = CorsLayer::new()
         .allow_methods([Method::GET, Method::POST, Method::PATCH, Method::DELETE])
@@ -94,7 +98,7 @@ async fn create_app(config: Config, database: Database) -> Result<Router, AppErr
         .route("/api/auth/forgot-password", post(handlers::forgot_password_handler))
         .route("/api/auth/reset-password", post(handlers::reset_password_handler))
         
-        .with_state(AppState { config, database, jwt_service, email_service })
+        .with_state(AppState { config, database, jwt_service, email_service, password_service })
         .layer(
             ServiceBuilder::new()
                 .layer(TraceLayer::new_for_http())

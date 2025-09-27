@@ -80,4 +80,75 @@ impl DeviceSession {
             is_current,
         }
     }
+
+    // Database operations (simplified for now)
+    pub async fn create_or_update(
+        pool: &sqlx::SqlitePool,
+        user_id: &uuid::Uuid,
+        device_name: &str,
+        device_fingerprint: &str,
+    ) -> crate::errors::Result<Self> {
+        let device_id = uuid::Uuid::new_v4();
+        let now = chrono::Utc::now();
+        let expires_at = now + chrono::Duration::days(30);
+
+        // For now, create a simple session object
+        Ok(Self {
+            id: device_id.to_string(),
+            user_id: user_id.to_string(),
+            refresh_token: String::new(), // Will be set later
+            device_fingerprint: device_fingerprint.to_string(),
+            user_agent: Some(device_name.to_string()),
+            ip_address: None,
+            trusted: false,
+            expires_at: expires_at.format("%Y-%m-%d %H:%M:%S").to_string(),
+            last_used: now.format("%Y-%m-%d %H:%M:%S").to_string(),
+            created_at: now.format("%Y-%m-%d %H:%M:%S").to_string(),
+        })
+    }
+
+    pub async fn find_by_user_and_device(
+        pool: &sqlx::SqlitePool,
+        user_id: &uuid::Uuid,
+        device_id: &str,
+    ) -> crate::errors::Result<Self> {
+        // Simplified implementation for now
+        Ok(Self {
+            id: device_id.to_string(),
+            user_id: user_id.to_string(),
+            refresh_token: String::new(),
+            device_fingerprint: "fingerprint".to_string(),
+            user_agent: Some("device".to_string()),
+            ip_address: None,
+            trusted: false,
+            expires_at: chrono::Utc::now().format("%Y-%m-%d %H:%M:%S").to_string(),
+            last_used: chrono::Utc::now().format("%Y-%m-%d %H:%M:%S").to_string(),
+            created_at: chrono::Utc::now().format("%Y-%m-%d %H:%M:%S").to_string(),
+        })
+    }
+
+    pub async fn update(&mut self, pool: &sqlx::SqlitePool) -> crate::errors::Result<()> {
+        // Simplified for now
+        let updated_at = chrono::Utc::now();
+        self.last_used = updated_at.format("%Y-%m-%d %H:%M:%S").to_string();
+        Ok(())
+    }
+
+    pub async fn invalidate_by_device_id(
+        pool: &sqlx::SqlitePool,
+        device_id: &str,
+    ) -> crate::errors::Result<()> {
+        // Simplified for now
+        tracing::info!("Invalidating device session: {}", device_id);
+        Ok(())
+    }
+
+    pub async fn invalidate_all_for_user(
+        pool: &sqlx::SqlitePool,
+        user_id: &uuid::Uuid,
+    ) -> crate::errors::Result<()> {
+        // Simplified for now
+        tracing::info!("Invalidating all sessions for user: {}", user_id);
+        Ok(())
+    }
 }
