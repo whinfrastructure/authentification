@@ -1,4 +1,4 @@
-use authentification::{Config, AppError, AppState, Database, JwtService, EmailService, handlers};
+use authentification::{Config, AppError, AppState, Database, JwtService, EmailService, PasswordService, handlers};
 use axum::{
     extract::State,
     http::{

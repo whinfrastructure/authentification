@@ -44,11 +44,11 @@ pub struct UserResponse {
 
 impl User {
     pub fn new(email: String, password: &str) -> Result<Self> {
-        let id = Uuid::new_v4().to_string();
+        let id = Uuid::new_v4();
         let password_service = PasswordService::new();
         let policy = PasswordPolicy::default();
         let password_hash = password_service.validate_and_hash(password, &policy)?;
-        let now = chrono::Utc::now().format("%Y-%m-%d %H:%M:%S").to_string();
+        let now = chrono::Utc::now();
 
         Ok(Self {
             id,
@@ -57,8 +57,9 @@ impl User {
             email_verified: false,
             first_name: None,
             last_name: None,
+            email_verified_at: None,
             avatar_url: None,
-            created_at: now.clone(),
+            created_at: now,
             updated_at: now,
         })
     }
@@ -72,7 +73,7 @@ impl User {
         let password_service = PasswordService::new();
         let policy = PasswordPolicy::default();
         self.password_hash = password_service.validate_and_hash(new_password, &policy)?;
-        self.updated_at = chrono::Utc::now().format("%Y-%m-%d %H:%M:%S").to_string();
+        self.updated_at = chrono::Utc::now();
         Ok(())
     }
 
@@ -82,14 +83,14 @@ impl User {
 
     pub fn to_response(&self) -> UserResponse {
         UserResponse {
-            id: self.id.clone(),
+            id: self.id.to_string(),
             email: self.email.clone(),
             email_verified: self.email_verified,
             first_name: self.first_name.clone(),
             last_name: self.last_name.clone(),
             avatar_url: self.avatar_url.clone(),
-            created_at: self.created_at.clone(),
-            updated_at: self.updated_at.clone(),
+            created_at: self.created_at.to_string(),
+            updated_at: self.updated_at.to_string(),
         }
     }
 }
