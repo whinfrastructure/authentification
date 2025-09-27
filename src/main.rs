@@ -1,4 +1,4 @@
-use authentification::{Config, AppError, AppState, Database, JwtService, EmailService, PasswordService, handlers};
+use authentification::{Config, AppError, AppState, Database, JwtService, EmailService, PasswordService, handlers, docs::ApiDoc};
 use axum::{
     extract::State,
     http::{
@@ -6,7 +6,7 @@ use axum::{
         HeaderValue, Method, StatusCode,
     },
     response::Json,
-    routing::{get, post},
+    routing::{get, post, put, delete},
     Router,
 };
 use serde_json::json;
@@ -18,6 +18,8 @@ use tower_http::{
 };
 use tracing::{info, error};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
+use utoipa::OpenApi;
+use utoipa_swagger_ui::SwaggerUi;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -74,7 +76,7 @@ async fn create_app(config: Config, database: Database) -> Result<Router, AppErr
     
     // Setup CORS
     let cors = CorsLayer::new()
-        .allow_methods([Method::GET, Method::POST, Method::PATCH, Method::DELETE])
+        .allow_methods([Method::GET, Method::POST, Method::PUT, Method::PATCH, Method::DELETE])
         .allow_headers([AUTHORIZATION, ACCEPT, CONTENT_TYPE])
         .allow_credentials(true)
         .allow_origin(
@@ -89,14 +91,24 @@ async fn create_app(config: Config, database: Database) -> Result<Router, AppErr
         // Health check
         .route("/health", get(health_check))
         
+        // OpenAPI documentation
+        .merge(SwaggerUi::new("/swagger-ui").url("/api-docs/openapi.json", ApiDoc::openapi()))
+        .route("/api-docs/openapi.json", get(serve_openapi))
+        
         // Authentication routes
-        .route("/api/auth/register", post(handlers::register_handler))
-        .route("/api/auth/login", post(handlers::login_handler))
-        .route("/api/auth/logout", post(handlers::logout_handler))
-        .route("/api/auth/refresh", post(handlers::refresh_handler))
-        .route("/api/auth/verify-email", post(handlers::verify_email_handler))
-        .route("/api/auth/forgot-password", post(handlers::forgot_password_handler))
-        .route("/api/auth/reset-password", post(handlers::reset_password_handler))
+        .route("/auth/register", post(handlers::register_handler))
+        .route("/auth/login", post(handlers::login_handler))
+        .route("/auth/logout", post(handlers::logout_handler))
+        .route("/auth/refresh", post(handlers::refresh_handler))
+        .route("/auth/verify-email", get(handlers::verify_email_handler))
+        .route("/auth/forgot-password", post(handlers::forgot_password_handler))
+        .route("/auth/reset-password", post(handlers::reset_password_handler))
+        
+        // User management routes
+        .route("/auth/profile", get(handlers::get_profile_handler))
+        .route("/auth/profile", put(handlers::update_profile_handler))
+        .route("/auth/change-password", post(handlers::change_password_handler))
+        .route("/auth/account", delete(handlers::delete_account_handler))
         
         .with_state(AppState { config, database, jwt_service, email_service, password_service })
         .layer(
@@ -106,6 +118,10 @@ async fn create_app(config: Config, database: Database) -> Result<Router, AppErr
         );
 
     Ok(app)
+}
+
+async fn serve_openapi() -> Json<utoipa::openapi::OpenApi> {
+    Json(ApiDoc::openapi())
 }
 
 async fn health_check(State(state): State<AppState>) -> Result<Json<serde_json::Value>, StatusCode> {

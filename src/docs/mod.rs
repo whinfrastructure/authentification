@@ -1,7 +1,7 @@
 use utoipa::OpenApi;
 use crate::handlers::auth::*;
-use crate::models::{user::*, session::*, verification::*};
-use crate::errors::AppError;
+use crate::models::{user::User, session::{DeviceSession, DeviceSessionResponse}, verification::VerificationCode};
+use crate::errors::ApiError;
 
 #[derive(OpenApi)]
 #[openapi(
@@ -21,22 +21,27 @@ use crate::errors::AppError;
     components(
         schemas(
             RegisterRequest,
+            RegisterResponse,
             LoginRequest,
-            RefreshRequest,
-            VerifyEmailRequest,
+            LoginResponse,
+            RefreshTokenRequest,
+            RefreshResponse,
+            VerifyEmailQuery,
             ForgotPasswordRequest,
             ResetPasswordRequest,
             UpdateProfileRequest,
             ChangePasswordRequest,
-            AuthResponse,
+            UserInfo,
             UserResponse,
             MessageResponse,
-            AppError,
+            ApiError,
             User,
-            Session,
-            EmailVerification
+            DeviceSession,
+            DeviceSessionResponse,
+            VerificationCode
         )
     ),
+    modifiers(&SecurityAddon),
     tags(
         (name = "auth", description = "Authentication endpoints"),
         (name = "user", description = "User management endpoints")
@@ -60,3 +65,22 @@ use crate::errors::AppError;
     )
 )]
 pub struct ApiDoc;
+
+use utoipa::Modify;
+
+struct SecurityAddon;
+
+impl Modify for SecurityAddon {
+    fn modify(&self, openapi: &mut utoipa::openapi::OpenApi) {
+        if let Some(components) = openapi.components.as_mut() {
+            components.add_security_scheme(
+                "bearer_auth",
+                utoipa::openapi::security::SecurityScheme::Http(
+                    utoipa::openapi::security::Http::new(
+                        utoipa::openapi::security::HttpAuthScheme::Bearer,
+                    )
+                ),
+            )
+        }
+    }
+}

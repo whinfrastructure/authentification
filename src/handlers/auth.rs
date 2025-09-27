@@ -9,7 +9,7 @@ use uuid::Uuid;
 use utoipa::ToSchema;
 
 use crate::{
-    errors::AppError,
+    errors::{AppError, ApiError},
     AppState,
 };
 
@@ -185,13 +185,13 @@ fn extract_device_fingerprint(headers: &HeaderMap) -> String {
 #[utoipa::path(
     post,
     path = "/auth/register",
-    tags = ["auth"],
+    tag = "auth",
     request_body = RegisterRequest,
     responses(
         (status = 201, description = "User registered successfully", body = RegisterResponse),
-        (status = 400, description = "Validation error", body = AppError),
-        (status = 409, description = "User already exists", body = AppError),
-        (status = 500, description = "Internal server error", body = AppError)
+        (status = 400, description = "Validation error", body = ApiError),
+        (status = 409, description = "User already exists", body = ApiError),
+        (status = 500, description = "Internal server error", body = ApiError)
     )
 )]
 pub async fn register_handler(
@@ -219,13 +219,13 @@ pub async fn register_handler(
 #[utoipa::path(
     post,
     path = "/auth/login",
-    tags = ["auth"],
+    tag = "auth",
     request_body = LoginRequest,
     responses(
         (status = 200, description = "Login successful", body = LoginResponse),
-        (status = 400, description = "Validation error", body = AppError),
-        (status = 401, description = "Invalid credentials", body = AppError),
-        (status = 500, description = "Internal server error", body = AppError)
+        (status = 400, description = "Validation error", body = ApiError),
+        (status = 401, description = "Invalid credentials", body = ApiError),
+        (status = 500, description = "Internal server error", body = ApiError)
     )
 )]
 pub async fn login_handler(
@@ -274,14 +274,14 @@ pub async fn login_handler(
 #[utoipa::path(
     post,
     path = "/auth/logout",
-    tags = ["auth"],
+    tag = "auth",
     security(
         ("bearer_auth" = [])
     ),
     responses(
         (status = 200, description = "Logout successful", body = MessageResponse),
-        (status = 401, description = "Invalid or missing token", body = AppError),
-        (status = 500, description = "Internal server error", body = AppError)
+        (status = 401, description = "Invalid or missing token", body = ApiError),
+        (status = 500, description = "Internal server error", body = ApiError)
     )
 )]
 pub async fn logout_handler(
@@ -310,13 +310,13 @@ pub async fn logout_handler(
 #[utoipa::path(
     post,
     path = "/auth/refresh",
-    tags = ["auth"],
+    tag = "auth",
     request_body = RefreshTokenRequest,
     responses(
         (status = 200, description = "Token refreshed successfully", body = RefreshResponse),
-        (status = 400, description = "Validation error", body = AppError),
-        (status = 401, description = "Invalid or expired refresh token", body = AppError),
-        (status = 500, description = "Internal server error", body = AppError)
+        (status = 400, description = "Validation error", body = ApiError),
+        (status = 401, description = "Invalid or expired refresh token", body = ApiError),
+        (status = 500, description = "Internal server error", body = ApiError)
     )
 )]
 pub async fn refresh_handler(
@@ -350,15 +350,15 @@ pub async fn refresh_handler(
 #[utoipa::path(
     get,
     path = "/auth/verify-email",
-    tags = ["auth"],
+    tag = "auth",
     params(
         ("code" = String, Query, description = "Email verification code")
     ),
     responses(
         (status = 200, description = "Email verified successfully", body = MessageResponse),
-        (status = 400, description = "Invalid verification code", body = AppError),
-        (status = 404, description = "Verification code not found", body = AppError),
-        (status = 500, description = "Internal server error", body = AppError)
+        (status = 400, description = "Invalid verification code", body = ApiError),
+        (status = 404, description = "Verification code not found", body = ApiError),
+        (status = 500, description = "Internal server error", body = ApiError)
     )
 )]
 pub async fn verify_email_handler(
@@ -377,13 +377,13 @@ pub async fn verify_email_handler(
 #[utoipa::path(
     post,
     path = "/auth/forgot-password",
-    tags = ["auth"],
+    tag = "auth",
     request_body = ForgotPasswordRequest,
     responses(
         (status = 200, description = "Password reset email sent", body = MessageResponse),
-        (status = 400, description = "Validation error", body = AppError),
-        (status = 404, description = "User not found", body = AppError),
-        (status = 500, description = "Internal server error", body = AppError)
+        (status = 400, description = "Validation error", body = ApiError),
+        (status = 404, description = "User not found", body = ApiError),
+        (status = 500, description = "Internal server error", body = ApiError)
     )
 )]
 pub async fn forgot_password_handler(
@@ -406,13 +406,13 @@ pub async fn forgot_password_handler(
 #[utoipa::path(
     post,
     path = "/auth/reset-password",
-    tags = ["auth"],
+    tag = "auth",
     request_body = ResetPasswordRequest,
     responses(
         (status = 200, description = "Password reset successfully", body = MessageResponse),
-        (status = 400, description = "Validation error", body = AppError),
-        (status = 404, description = "Invalid reset code", body = AppError),
-        (status = 500, description = "Internal server error", body = AppError)
+        (status = 400, description = "Validation error", body = ApiError),
+        (status = 404, description = "Invalid reset code", body = ApiError),
+        (status = 500, description = "Internal server error", body = ApiError)
     )
 )]
 pub async fn reset_password_handler(
@@ -468,14 +468,14 @@ pub struct UserResponse {
 #[utoipa::path(
     get,
     path = "/auth/profile",
-    tags = ["user"],
+    tag = "user",
     security(
         ("bearer_auth" = [])
     ),
     responses(
         (status = 200, description = "User profile retrieved", body = UserResponse),
-        (status = 401, description = "Invalid or missing token", body = AppError),
-        (status = 500, description = "Internal server error", body = AppError)
+        (status = 401, description = "Invalid or missing token", body = ApiError),
+        (status = 500, description = "Internal server error", body = ApiError)
     )
 )]
 pub async fn get_profile_handler(
@@ -505,16 +505,16 @@ pub async fn get_profile_handler(
 #[utoipa::path(
     put,
     path = "/auth/profile",
-    tags = ["user"],
+    tag = "user",
     security(
         ("bearer_auth" = [])
     ),
     request_body = UpdateProfileRequest,
     responses(
         (status = 200, description = "Profile updated successfully", body = UserResponse),
-        (status = 400, description = "Validation error", body = AppError),
-        (status = 401, description = "Invalid or missing token", body = AppError),
-        (status = 500, description = "Internal server error", body = AppError)
+        (status = 400, description = "Validation error", body = ApiError),
+        (status = 401, description = "Invalid or missing token", body = ApiError),
+        (status = 500, description = "Internal server error", body = ApiError)
     )
 )]
 pub async fn update_profile_handler(
@@ -548,16 +548,16 @@ pub async fn update_profile_handler(
 #[utoipa::path(
     post,
     path = "/auth/change-password",
-    tags = ["user"],
+    tag = "user",
     security(
         ("bearer_auth" = [])
     ),
     request_body = ChangePasswordRequest,
     responses(
         (status = 200, description = "Password changed successfully", body = MessageResponse),
-        (status = 400, description = "Validation error", body = AppError),
-        (status = 401, description = "Invalid credentials or token", body = AppError),
-        (status = 500, description = "Internal server error", body = AppError)
+        (status = 400, description = "Validation error", body = ApiError),
+        (status = 401, description = "Invalid credentials or token", body = ApiError),
+        (status = 500, description = "Internal server error", body = ApiError)
     )
 )]
 pub async fn change_password_handler(
@@ -588,14 +588,14 @@ pub async fn change_password_handler(
 #[utoipa::path(
     delete,
     path = "/auth/account",
-    tags = ["user"],
+    tag = "user",
     security(
         ("bearer_auth" = [])
     ),
     responses(
         (status = 200, description = "Account deleted successfully", body = MessageResponse),
-        (status = 401, description = "Invalid or missing token", body = AppError),
-        (status = 500, description = "Internal server error", body = AppError)
+        (status = 401, description = "Invalid or missing token", body = ApiError),
+        (status = 500, description = "Internal server error", body = ApiError)
     )
 )]
 pub async fn delete_account_handler(

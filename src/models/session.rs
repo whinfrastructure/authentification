@@ -189,3 +189,6 @@ impl DeviceSession {
         Ok(())
     }
 }
+
+// Alias for OpenAPI documentation
+pub type Session = DeviceSession;

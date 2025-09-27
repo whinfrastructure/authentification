@@ -3,18 +3,37 @@ use serde::{Deserialize, Serialize};
 use sqlx::{FromRow, SqlitePool};
 use uuid::Uuid;
 use rand::Rng;
+use utoipa::ToSchema;
 use crate::errors::Result;
 
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow, ToSchema)]
 pub struct VerificationCode {
+    /// Verification code unique identifier
+    #[schema(example = "ver_550e8400e29b41d4a716446655440000")]
     pub id: String,
+    /// Associated user ID
+    #[schema(example = "550e8400-e29b-41d4-a716-446655440000")]
     pub user_id: String, 
+    /// Email address for verification
+    #[schema(example = "user@example.com")]
     pub email: Option<String>,   
+    /// Verification code
+    #[schema(example = "ABC123DEF456")]
     pub code: String,
+    /// Type of verification code
+    #[schema(example = "email_verification")]
     pub code_type: String, // Simplify to string for now
+    /// Code expiration timestamp
+    #[schema(example = "2023-01-01T01:00:00Z")]
     pub expires_at: chrono::DateTime<chrono::Utc>,
+    /// Code usage timestamp
+    #[schema(example = "2023-01-01T00:30:00Z")]
     pub used_at: Option<chrono::DateTime<chrono::Utc>>,
+    /// Number of verification attempts
+    #[schema(example = 1)]
     pub attempts: i32,
+    /// Code creation timestamp
+    #[schema(example = "2023-01-01T00:00:00Z")]
     pub created_at: chrono::DateTime<chrono::Utc>,
 }
 
@@ -96,3 +115,6 @@ impl VerificationCode {
 
     // Database operations will be implemented later
 }
+
+// Alias for OpenAPI documentation
+pub type EmailVerification = VerificationCode;
