@@ -14,40 +14,69 @@ use crate::{
 };
 
 // Request and Response structures
-#[derive(Debug, Deserialize, Validate)]
+#[derive(Debug, Deserialize, Validate, ToSchema)]
 pub struct RegisterRequest {
+    /// User email address
     #[validate(email)]
+    #[schema(example = "user@example.com")]
     pub email: String,
+    /// Password (minimum 8 characters)
     #[validate(length(min = 8))]
+    #[schema(example = "securepassword123")]
     pub password: String,
+    /// User first name (minimum 2 characters)
     #[validate(length(min = 2))]
+    #[schema(example = "John")]
     pub first_name: String,
+    /// User last name (minimum 2 characters)
     #[validate(length(min = 2))]
+    #[schema(example = "Doe")]
     pub last_name: String,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, ToSchema)]
 pub struct RegisterResponse {
+    /// Success message
+    #[schema(example = "User registered successfully")]
     pub message: String,
+    /// The ID of the newly created user
+    #[schema(example = "550e8400-e29b-41d4-a716-446655440000")]
     pub user_id: String,
 }
 
-#[derive(Debug, Deserialize, Validate)]
+#[derive(Debug, Deserialize, Validate, ToSchema)]
 pub struct LoginRequest {
+    /// User email address
     #[validate(email)]
+    #[schema(example = "user@example.com")]
     pub email: String,
+    /// User password
     #[validate(length(min = 1))]
+    #[schema(example = "securepassword123")]
     pub password: String,
+    /// Optional device name for session tracking
+    #[schema(example = "iPhone 12")]
     pub device_name: Option<String>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, ToSchema)]
 pub struct LoginResponse {
+    /// JWT access token
+    #[schema(example = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...")]
     pub access_token: String,
+    /// JWT refresh token
+    #[schema(example = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...")]
     pub refresh_token: String,
+    /// Access token expiration time in seconds
+    #[schema(example = 900)]
     pub access_expires_in: i64,
+    /// Refresh token expiration time in seconds
+    #[schema(example = 604800)]
     pub refresh_expires_in: i64,
+    /// Token type
+    #[schema(example = "Bearer")]
     pub token_type: String,
+    /// User information
     pub user: UserInfo,
 }
 
