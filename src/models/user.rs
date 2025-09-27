@@ -3,19 +3,40 @@ use serde::{Deserialize, Serialize};
 use sqlx::{FromRow, SqlitePool};
 use uuid::Uuid;
 use validator::Validate;
+use utoipa::ToSchema;
 use crate::errors::Result;
 
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow, Validate)]
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow, Validate, ToSchema)]
 pub struct User {
+    /// Unique user identifier
+    #[schema(example = "550e8400-e29b-41d4-a716-446655440000")]
     pub id: Uuid,
+    /// User email address
+    #[schema(example = "user@example.com")]
     pub email: String,
+    /// Hashed password
+    #[schema(example = "$argon2id$v=19$m=65536,t=3,p=1$...")]
     pub password_hash: String,
+    /// User first name
+    #[schema(example = "John")]
     pub first_name: Option<String>,
+    /// User last name
+    #[schema(example = "Doe")]
     pub last_name: Option<String>,
+    /// Email verification status
+    #[schema(example = true)]
     pub email_verified: bool,
+    /// Email verification timestamp
+    #[schema(example = "2023-01-01T12:00:00Z")]
     pub email_verified_at: Option<chrono::DateTime<chrono::Utc>>,
+    /// User avatar URL
+    #[schema(example = "https://example.com/avatar.jpg")]
     pub avatar_url: Option<String>,
+    /// Account creation timestamp
+    #[schema(example = "2023-01-01T00:00:00Z")]
     pub created_at: chrono::DateTime<chrono::Utc>,
+    /// Account last update timestamp
+    #[schema(example = "2023-01-01T12:00:00Z")]
     pub updated_at: chrono::DateTime<chrono::Utc>,
 }
 

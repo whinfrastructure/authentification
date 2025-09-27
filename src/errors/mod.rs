@@ -3,9 +3,22 @@ use axum::{
     response::{IntoResponse, Response},
     Json,
 };
+use serde::{Deserialize, Serialize};
 use serde_json::json;
 use thiserror::Error;
+use utoipa::ToSchema;
 use validator::ValidationErrors;
+
+// Simplified error representation for OpenAPI
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
+pub struct ApiError {
+    /// Error type
+    #[schema(example = "validation_error")]
+    pub error: String,
+    /// Error message
+    #[schema(example = "Invalid input provided")]
+    pub message: String,
+}
 
 #[derive(Error, Debug)]
 pub enum AppError {
@@ -75,10 +88,10 @@ impl IntoResponse for AppError {
             AppError::UuidError(_) => (StatusCode::BAD_REQUEST, "Invalid UUID format"),
         };
 
-        let body = Json(json!({
-            "error": error_message,
-            "message": self.to_string(),
-        }));
+        let body = Json(ApiError {
+            error: error_message.to_string(),
+            message: self.to_string(),
+        });
 
         (status, body).into_response()
     }

@@ -6,6 +6,7 @@ pub mod middleware;
 pub mod database;
 pub mod utils;
 pub mod errors;
+pub mod docs;
 
 // Re-exports for convenience
 pub use config::*;

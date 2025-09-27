@@ -52,7 +52,7 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
 # OpenAPI documentation
 utoipa = { version = "4.0", features = ["axum_extras", "chrono", "uuid"] }
-utoipa-swagger-ui = { version = "4.0", features = ["axum"] }
+utoipa-swagger-ui = { version = "7.1", features = ["axum"] }
 
 # Error handling
 anyhow = "1.0"

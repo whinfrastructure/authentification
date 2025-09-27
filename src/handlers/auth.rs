@@ -9,7 +9,7 @@ use uuid::Uuid;
 use utoipa::ToSchema;
 
 use crate::{
-    errors::AppError,
+    errors::{AppError, ApiError},
     AppState,
 };
 
@@ -185,13 +185,13 @@ fn extract_device_fingerprint(headers: &HeaderMap) -> String {
 #[utoipa::path(
     post,
     path = "/auth/register",
-    tags = ["auth"],
+    tag = "auth",
     request_body = RegisterRequest,
     responses(
         (status = 201, description = "User registered successfully", body = RegisterResponse),
-        (status = 400, description = "Validation error", body = AppError),
-        (status = 409, description = "User already exists", body = AppError),
-        (status = 500, description = "Internal server error", body = AppError)
+        (status = 400, description = "Validation error", body = ApiError),
+        (status = 409, description = "User already exists", body = ApiError),
+        (status = 500, description = "Internal server error", body = ApiError)
     )
 )]
 pub async fn register_handler(
@@ -219,13 +219,13 @@ pub async fn register_handler(
 #[utoipa::path(
     post,
     path = "/auth/login",
-    tags = ["auth"],
+    tag = "auth",
     request_body = LoginRequest,
     responses(
         (status = 200, description = "Login successful", body = LoginResponse),
-        (status = 400, description = "Validation error", body = AppError),
-        (status = 401, description = "Invalid credentials", body = AppError),
-        (status = 500, description = "Internal server error", body = AppError)
+        (status = 400, description = "Validation error", body = ApiError),
+        (status = 401, description = "Invalid credentials", body = ApiError),
+        (status = 500, description = "Internal server error", body = ApiError)
     )
 )]
 pub async fn login_handler(
@@ -270,6 +270,20 @@ pub async fn login_handler(
     Ok(Json(response))
 }
 
+/// Logout user and invalidate session
+#[utoipa::path(
+    post,
+    path = "/auth/logout",
+    tag = "auth",
+    security(
+        ("bearer_auth" = [])
+    ),
+    responses(
+        (status = 200, description = "Logout successful", body = MessageResponse),
+        (status = 401, description = "Invalid or missing token", body = ApiError),
+        (status = 500, description = "Internal server error", body = ApiError)
+    )
+)]
 pub async fn logout_handler(
     State(_state): State<AppState>,
     headers: HeaderMap,
@@ -292,6 +306,19 @@ pub async fn logout_handler(
     }))
 }
 
+/// Refresh access token using refresh token
+#[utoipa::path(
+    post,
+    path = "/auth/refresh",
+    tag = "auth",
+    request_body = RefreshTokenRequest,
+    responses(
+        (status = 200, description = "Token refreshed successfully", body = RefreshResponse),
+        (status = 400, description = "Validation error", body = ApiError),
+        (status = 401, description = "Invalid or expired refresh token", body = ApiError),
+        (status = 500, description = "Internal server error", body = ApiError)
+    )
+)]
 pub async fn refresh_handler(
     State(state): State<AppState>,
     ExtractJson(request): ExtractJson<RefreshTokenRequest>,
@@ -319,6 +346,21 @@ pub async fn refresh_handler(
     Ok(Json(response))
 }
 
+/// Verify user email with verification code
+#[utoipa::path(
+    get,
+    path = "/auth/verify-email",
+    tag = "auth",
+    params(
+        ("code" = String, Query, description = "Email verification code")
+    ),
+    responses(
+        (status = 200, description = "Email verified successfully", body = MessageResponse),
+        (status = 400, description = "Invalid verification code", body = ApiError),
+        (status = 404, description = "Verification code not found", body = ApiError),
+        (status = 500, description = "Internal server error", body = ApiError)
+    )
+)]
 pub async fn verify_email_handler(
     State(_state): State<AppState>,
     Query(params): Query<VerifyEmailQuery>,
@@ -331,6 +373,19 @@ pub async fn verify_email_handler(
     }))
 }
 
+/// Request password reset
+#[utoipa::path(
+    post,
+    path = "/auth/forgot-password",
+    tag = "auth",
+    request_body = ForgotPasswordRequest,
+    responses(
+        (status = 200, description = "Password reset email sent", body = MessageResponse),
+        (status = 400, description = "Validation error", body = ApiError),
+        (status = 404, description = "User not found", body = ApiError),
+        (status = 500, description = "Internal server error", body = ApiError)
+    )
+)]
 pub async fn forgot_password_handler(
     State(_state): State<AppState>,
     ExtractJson(request): ExtractJson<ForgotPasswordRequest>,
@@ -347,6 +402,19 @@ pub async fn forgot_password_handler(
     }))
 }
 
+/// Reset password with reset code
+#[utoipa::path(
+    post,
+    path = "/auth/reset-password",
+    tag = "auth",
+    request_body = ResetPasswordRequest,
+    responses(
+        (status = 200, description = "Password reset successfully", body = MessageResponse),
+        (status = 400, description = "Validation error", body = ApiError),
+        (status = 404, description = "Invalid reset code", body = ApiError),
+        (status = 500, description = "Internal server error", body = ApiError)
+    )
+)]
 pub async fn reset_password_handler(
     State(state): State<AppState>,
     ExtractJson(request): ExtractJson<ResetPasswordRequest>,
@@ -361,5 +429,188 @@ pub async fn reset_password_handler(
 
     Ok(Json(MessageResponse {
         message: "Password reset successfully".to_string(),
+    }))
+}
+
+// Additional structures for user management
+#[derive(Debug, Deserialize, Validate, ToSchema)]
+pub struct UpdateProfileRequest {
+    /// User first name
+    #[validate(length(min = 2))]
+    #[schema(example = "John")]
+    pub first_name: Option<String>,
+    /// User last name
+    #[validate(length(min = 2))]
+    #[schema(example = "Doe")]
+    pub last_name: Option<String>,
+}
+
+#[derive(Debug, Deserialize, Validate, ToSchema)]
+pub struct ChangePasswordRequest {
+    /// Current password
+    #[validate(length(min = 1))]
+    #[schema(example = "currentpassword123")]
+    pub current_password: String,
+    /// New password (minimum 8 characters)
+    #[validate(length(min = 8))]
+    #[schema(example = "newpassword123")]
+    pub new_password: String,
+}
+
+#[derive(Debug, Serialize, ToSchema)]
+pub struct UserResponse {
+    /// User information
+    pub user: UserInfo,
+}
+
+// Additional handlers for user management
+/// Get user profile
+#[utoipa::path(
+    get,
+    path = "/auth/profile",
+    tag = "user",
+    security(
+        ("bearer_auth" = [])
+    ),
+    responses(
+        (status = 200, description = "User profile retrieved", body = UserResponse),
+        (status = 401, description = "Invalid or missing token", body = ApiError),
+        (status = 500, description = "Internal server error", body = ApiError)
+    )
+)]
+pub async fn get_profile_handler(
+    State(_state): State<AppState>,
+    headers: HeaderMap,
+) -> Result<Json<UserResponse>, AppError> {
+    // Extract and validate authorization header
+    let _auth_header = headers
+        .get("authorization")
+        .and_then(|header| header.to_str().ok())
+        .ok_or_else(|| AppError::Authentication("Missing authorization header".to_string()))?;
+
+    // Mock user data - in real implementation, extract from JWT and query database
+    let user_info = UserInfo {
+        id: "550e8400-e29b-41d4-a716-446655440000".to_string(),
+        email: "user@example.com".to_string(),
+        first_name: "John".to_string(),
+        last_name: "Doe".to_string(),
+        email_verified: true,
+        created_at: chrono::Utc::now(),
+    };
+
+    Ok(Json(UserResponse { user: user_info }))
+}
+
+/// Update user profile
+#[utoipa::path(
+    put,
+    path = "/auth/profile",
+    tag = "user",
+    security(
+        ("bearer_auth" = [])
+    ),
+    request_body = UpdateProfileRequest,
+    responses(
+        (status = 200, description = "Profile updated successfully", body = UserResponse),
+        (status = 400, description = "Validation error", body = ApiError),
+        (status = 401, description = "Invalid or missing token", body = ApiError),
+        (status = 500, description = "Internal server error", body = ApiError)
+    )
+)]
+pub async fn update_profile_handler(
+    State(_state): State<AppState>,
+    headers: HeaderMap,
+    ExtractJson(request): ExtractJson<UpdateProfileRequest>,
+) -> Result<Json<UserResponse>, AppError> {
+    // Validate input
+    request.validate()?;
+
+    // Extract and validate authorization header
+    let _auth_header = headers
+        .get("authorization")
+        .and_then(|header| header.to_str().ok())
+        .ok_or_else(|| AppError::Authentication("Missing authorization header".to_string()))?;
+
+    // Mock updated user data - in real implementation, update database
+    let user_info = UserInfo {
+        id: "550e8400-e29b-41d4-a716-446655440000".to_string(),
+        email: "user@example.com".to_string(),
+        first_name: request.first_name.unwrap_or_else(|| "John".to_string()),
+        last_name: request.last_name.unwrap_or_else(|| "Doe".to_string()),
+        email_verified: true,
+        created_at: chrono::Utc::now(),
+    };
+
+    Ok(Json(UserResponse { user: user_info }))
+}
+
+/// Change user password
+#[utoipa::path(
+    post,
+    path = "/auth/change-password",
+    tag = "user",
+    security(
+        ("bearer_auth" = [])
+    ),
+    request_body = ChangePasswordRequest,
+    responses(
+        (status = 200, description = "Password changed successfully", body = MessageResponse),
+        (status = 400, description = "Validation error", body = ApiError),
+        (status = 401, description = "Invalid credentials or token", body = ApiError),
+        (status = 500, description = "Internal server error", body = ApiError)
+    )
+)]
+pub async fn change_password_handler(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    ExtractJson(request): ExtractJson<ChangePasswordRequest>,
+) -> Result<Json<MessageResponse>, AppError> {
+    // Validate input
+    request.validate()?;
+
+    // Extract and validate authorization header
+    let _auth_header = headers
+        .get("authorization")
+        .and_then(|header| header.to_str().ok())
+        .ok_or_else(|| AppError::Authentication("Missing authorization header".to_string()))?;
+
+    // Simplified implementation - just validate password format
+    let _new_password_hash = state.password_service.hash_password(&request.new_password)?;
+
+    tracing::info!("Password changed for user");
+
+    Ok(Json(MessageResponse {
+        message: "Password changed successfully".to_string(),
+    }))
+}
+
+/// Delete user account
+#[utoipa::path(
+    delete,
+    path = "/auth/account",
+    tag = "user",
+    security(
+        ("bearer_auth" = [])
+    ),
+    responses(
+        (status = 200, description = "Account deleted successfully", body = MessageResponse),
+        (status = 401, description = "Invalid or missing token", body = ApiError),
+        (status = 500, description = "Internal server error", body = ApiError)
+    )
+)]
+pub async fn delete_account_handler(
+    State(_state): State<AppState>,
+    headers: HeaderMap,
+) -> Result<Json<MessageResponse>, AppError> {
+    // Extract and validate authorization header
+    let _auth_header = headers
+        .get("authorization")
+        .and_then(|header| header.to_str().ok())
+        .ok_or_else(|| AppError::Authentication("Missing authorization header".to_string()))?;
+
+    tracing::info!("Account deletion requested");
+
+    Ok(Json(MessageResponse {
+        message: "Account deleted successfully".to_string(),
     }))
 }

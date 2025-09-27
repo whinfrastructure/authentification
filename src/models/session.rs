@@ -2,31 +2,68 @@ use chrono::{DateTime, Utc, Duration};
 use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
 use uuid::Uuid;
+use utoipa::ToSchema;
 use crate::errors::Result;
 
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow, ToSchema)]
 pub struct DeviceSession {
+    /// Session unique identifier
+    #[schema(example = "sess_550e8400e29b41d4a716446655440000")]
     pub id: String,
+    /// Associated user ID
+    #[schema(example = "550e8400-e29b-41d4-a716-446655440000")]
     pub user_id: String,
+    /// Refresh token for this session
+    #[schema(example = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...")]
     pub refresh_token: String,
+    /// Device fingerprint
+    #[schema(example = "chrome-windows-1920x1080")]
     pub device_fingerprint: String,
+    /// User agent string
+    #[schema(example = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")]
     pub user_agent: Option<String>,
+    /// IP address
+    #[schema(example = "192.168.1.100")]
     pub ip_address: Option<String>,
+    /// Whether the device is trusted
+    #[schema(example = true)]
     pub trusted: bool,
+    /// Session expiration timestamp
+    #[schema(example = "2023-01-08T00:00:00Z")]
     pub expires_at: String, // SQLite TEXT datetime
+    /// Last used timestamp
+    #[schema(example = "2023-01-01T12:00:00Z")]
     pub last_used: String,
+    /// Session creation timestamp
+    #[schema(example = "2023-01-01T00:00:00Z")]
     pub created_at: String,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct DeviceSessionResponse {
+    /// Session unique identifier
+    #[schema(example = "sess_550e8400e29b41d4a716446655440000")]
     pub id: String,
+    /// Device fingerprint
+    #[schema(example = "chrome-windows-1920x1080")]
     pub device_fingerprint: String,
+    /// User agent string
+    #[schema(example = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")]
     pub user_agent: Option<String>,
+    /// IP address
+    #[schema(example = "192.168.1.100")]
     pub ip_address: Option<String>,
+    /// Whether the device is trusted
+    #[schema(example = true)]
     pub trusted: bool,
+    /// Last used timestamp
+    #[schema(example = "2023-01-01T12:00:00Z")]
     pub last_used: String,
+    /// Session creation timestamp
+    #[schema(example = "2023-01-01T00:00:00Z")]
     pub created_at: String,
+    /// Whether this is the current session
+    #[schema(example = true)]
     pub is_current: bool, // Indicates if this is the current session
 }
 
@@ -152,3 +189,6 @@ impl DeviceSession {
         Ok(())
     }
 }
+
+// Alias for OpenAPI documentation
+pub type Session = DeviceSession;
