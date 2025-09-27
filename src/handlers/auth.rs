@@ -80,52 +80,86 @@ pub struct LoginResponse {
     pub user: UserInfo,
 }
 
-#[derive(Debug, Deserialize, Validate)]
+#[derive(Debug, Deserialize, Validate, ToSchema)]
 pub struct RefreshTokenRequest {
+    /// JWT refresh token
     #[validate(length(min = 10))]
+    #[schema(example = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...")]
     pub refresh_token: String,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, ToSchema)]
 pub struct RefreshResponse {
+    /// New JWT access token
+    #[schema(example = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...")]
     pub access_token: String,
+    /// New JWT refresh token
+    #[schema(example = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...")]
     pub refresh_token: String,
+    /// Access token expiration time in seconds
+    #[schema(example = 900)]
     pub access_expires_in: i64,
+    /// Refresh token expiration time in seconds
+    #[schema(example = 604800)]
     pub refresh_expires_in: i64,
+    /// Token type
+    #[schema(example = "Bearer")]
     pub token_type: String,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema)]
 pub struct VerifyEmailQuery {
+    /// Email verification code
+    #[schema(example = "ABC123DEF456")]
     pub code: String,
 }
 
-#[derive(Debug, Deserialize, Validate)]
+#[derive(Debug, Deserialize, Validate, ToSchema)]
 pub struct ForgotPasswordRequest {
+    /// User email address
     #[validate(email)]
+    #[schema(example = "user@example.com")]
     pub email: String,
 }
 
-#[derive(Debug, Deserialize, Validate)]
+#[derive(Debug, Deserialize, Validate, ToSchema)]
 pub struct ResetPasswordRequest {
+    /// Password reset code
     #[validate(length(min = 1))]
+    #[schema(example = "RST123ABC456")]
     pub code: String,
+    /// New password (minimum 8 characters)
     #[validate(length(min = 8))]
+    #[schema(example = "newsecurepassword123")]
     pub new_password: String,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, ToSchema)]
 pub struct MessageResponse {
+    /// Response message
+    #[schema(example = "Operation completed successfully")]
     pub message: String,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, ToSchema)]
 pub struct UserInfo {
+    /// User ID
+    #[schema(example = "550e8400-e29b-41d4-a716-446655440000")]
     pub id: String,
+    /// User email address
+    #[schema(example = "user@example.com")]
     pub email: String,
+    /// User first name
+    #[schema(example = "John")]
     pub first_name: String,
+    /// User last name
+    #[schema(example = "Doe")]
     pub last_name: String,
+    /// Email verification status
+    #[schema(example = true)]
     pub email_verified: bool,
+    /// Account creation timestamp
+    #[schema(example = "2023-01-01T00:00:00Z")]
     pub created_at: chrono::DateTime<chrono::Utc>,
 }
 
@@ -147,6 +181,19 @@ fn extract_device_fingerprint(headers: &HeaderMap) -> String {
 }
 
 // Simplified Authentication handlers for now
+/// Register a new user account
+#[utoipa::path(
+    post,
+    path = "/auth/register",
+    tags = ["auth"],
+    request_body = RegisterRequest,
+    responses(
+        (status = 201, description = "User registered successfully", body = RegisterResponse),
+        (status = 400, description = "Validation error", body = AppError),
+        (status = 409, description = "User already exists", body = AppError),
+        (status = 500, description = "Internal server error", body = AppError)
+    )
+)]
 pub async fn register_handler(
     State(state): State<AppState>,
     ExtractJson(request): ExtractJson<RegisterRequest>,
@@ -168,6 +215,19 @@ pub async fn register_handler(
     Ok(Json(response))
 }
 
+/// Authenticate user and return JWT tokens
+#[utoipa::path(
+    post,
+    path = "/auth/login",
+    tags = ["auth"],
+    request_body = LoginRequest,
+    responses(
+        (status = 200, description = "Login successful", body = LoginResponse),
+        (status = 400, description = "Validation error", body = AppError),
+        (status = 401, description = "Invalid credentials", body = AppError),
+        (status = 500, description = "Internal server error", body = AppError)
+    )
+)]
 pub async fn login_handler(
     State(state): State<AppState>,
     _headers: HeaderMap,
